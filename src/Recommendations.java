@@ -8,6 +8,8 @@ public class Recommendations {
   public static void main(String[] args) {
     Map<String, Map<String, Double>> critics = initialiseMap();
 
+    System.out.println("User-Based Filtering\n");
+
     //Get Similarity between 2 users with Euclidean Distance Score (EDS)
     System.out.println("Similarity between Lisa and Gene using " +
             "EDS: " + SimilarUsers.simEuclidDistance(critics.get("Lisa Rose")
@@ -21,43 +23,45 @@ public class Recommendations {
         critics.get("Lisa Rose"), critics.get("Gene Seymour")));
 
     //Find n most compatible reviewers in descending order with PCS
-    System.out.println();
-    System.out.println("3 most compatible reviewers to Toby");
+    System.out.println("\n3 most compatible reviewers to Toby:");
     topMatches(critics, "Toby", 3, ScoreType.PEARSON);
-    System.out.println();
 
     //Get film recommendations for films a person hasn't watched, using
     // weighted calculations from PCS based on critics with similar interests
-    System.out.println();
-    System.out.println("Getting Toby some recommendations for films he has " +
-        "not seen");
+    System.out.println("\nGetting Toby some recommendations for films he has " +
+        "not seen:");
     getRecommendations(critics, "Toby", ScoreType.PEARSON);
-    System.out.println();
 
     //transform the nested map to allow different analyses on same functions
     Map<String, Map<String, Double>> transformCritics = transformMap(critics);
 
     //Suggest films that people who enjoy superman returns tend to enjoy
     // using PCS
-    System.out.println();
-    System.out.println("Suggesting films that people who enjoy Superman " +
-        "returns might also like (PCS)");
+    System.out.println("\nSuggesting films that people who enjoy Superman " +
+        "returns might also like (PCS):");
     topMatches(transformCritics, "Superman Returns", 4, ScoreType.PEARSON);
-    System.out.println();
 
     //Suggest films that people who enjoy snakes on a plane tend to enjoy
     // using PCS
-    System.out.println();
-    System.out.println("Suggesting films that people who enjoy snakes on a " +
-        "plane might also like (PCS)");
+    System.out.println("\nSuggesting films that people who enjoy snakes on a " +
+        "plane might also like (PCS):");
     topMatches(transformCritics, "Snakes on a Plane", 4, ScoreType.PEARSON);
-    System.out.println();
 
     //Suggest critics that would enjoy the film Just My Luck (PCS)
-    System.out.println();
-    System.out.println("Suggesting critics that would enjoy Just my Luck (PCS");
+    System.out.println("\nSuggesting critics that would enjoy Just my Luck " +
+        "(PCS):");
     getRecommendations(transformCritics, "Just My Luck", ScoreType.PEARSON);
-    System.out.println();
+
+    System.out.println("\n\nItem-Based filtering\n");
+
+    System.out.println("Finding films most similar to film being compared:\n");
+    Map<String, Map<String, Double>> itemComparisonDataset =
+        calculateSimilarItems(transformCritics, 4);
+
+
+    System.out.println("\nGives recommendations for Toby using item " +
+        "similarity dataset");
+    getRecommendItems(critics, itemComparisonDataset, "Toby");
   }
 
   static Map<String, Map<String, Double>> initialiseMap() {
@@ -124,7 +128,10 @@ public class Recommendations {
     return critics;
   }
 
-  static void topMatches(Map<String, Map<String, Double>> critics,
+  //////////////////////// USER-BASED FILTERING ///////////////////////////////
+
+  static Map<String, Double> topMatches(Map<String, Map<String, Double>>
+                                            critics,
                          String person, int num_results, ScoreType scoreType) {
 
     if (critics.size() < num_results) {
@@ -155,6 +162,8 @@ public class Recommendations {
 
     // pretty print the results
     printResults(personSimilarity, num_results);
+
+    return personSimilarity;
   }
 
   //Get recommendations for person using weighted average of all other user's
@@ -283,5 +292,71 @@ public class Recommendations {
     }
 
     return result;
+  }
+
+  //////////////////////// ITEM-BASED FILTERING ///////////////////////////////
+
+  //Shows which other items are most similar to item being compared
+  //In practise, does not need to be run everytime a recommendation is needed
+  //Dataset is built once and reused each time it is needed
+  //Only needs to be re-run frequently enough to keep similarities up to dates
+  static Map<String, Map<String, Double>> calculateSimilarItems(Map<String,
+      Map<String, Double>> itemPrefs, int num_results) {
+
+    Map<String, Map<String, Double>> result = new HashMap<>();
+
+    for (String film : itemPrefs.keySet()) {
+      System.out.println("'" + film + "': ");
+      Map<String, Double> similarityToFilm = topMatches(itemPrefs, film, num_results, ScoreType.EUCLIDEAN);
+      similarityToFilm = sortByValue(similarityToFilm);
+      result.put(film, similarityToFilm);
+      System.out.println();
+    }
+
+    return result;
+  }
+
+  //gives recommendations using item similarity dataset
+  static void getRecommendItems(Map<String, Map<String, Double>> critics,
+                                Map<String, Map<String, Double>> itemMatch,
+                                String user) {
+    Map<String, Double> userRatings = critics.get(user);
+    Map<String, Double> scores = new HashMap<>();
+    Map<String, Double> totalSim = new HashMap<>();
+
+    //loop over items rated by user
+    for (String film : userRatings.keySet()) {
+      //loop over items similar to this item
+      for (String filmCompared : itemMatch.get(film).keySet()) {
+        //ignore if user already rated this item
+        if (userRatings.containsKey(filmCompared)) {
+          continue;
+        }
+
+        //weighted sum of rating times similarity
+        scores.putIfAbsent(filmCompared, 0.0);
+        double similarity = itemMatch.get(film).get(filmCompared);
+        double prevValue = scores.get(filmCompared);
+        double rating = userRatings.get(film);
+        scores.replace(filmCompared, prevValue + (similarity * rating));
+
+        //sum of all similarities
+        totalSim.putIfAbsent(filmCompared, 0.0);
+        double prevValueSum = totalSim.get(filmCompared);
+        totalSim.replace(filmCompared, prevValueSum + similarity);
+      }
+    }
+
+    //divide each total score by total weighting to get an average
+    Map<String, Double> rankings = new HashMap<>();
+
+    for (String film : scores.keySet()) {
+      double score = scores.get(film);
+      double itemTotal = totalSim.get(film);
+      rankings.put(film, score / itemTotal);
+    }
+
+    //return rankings from highest to lowest
+    printResults(rankings, rankings.size());
   }
 }
