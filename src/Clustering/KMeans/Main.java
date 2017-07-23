@@ -1,5 +1,7 @@
 package Clustering.KMeans;
 
+import Clustering.KMeans.Plot.KMeansPlot;
+import Clustering.KMeans.Plot.PointsPlot;
 import org.jfree.ui.RefineryUtilities;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,10 +12,10 @@ public class Main {
   public static void main(String[] args) {
 
     List<Point> randomPoints = new ArrayList<>();
-    int numRandomPoints = 50;
-    int randomRange = 25;
+    int numRandomPoints = 500;
+    int randomRange = 100;
     Random generator = new Random();
-    int numClusters = 5;
+    int numClusters = 10;
 
     for (int i = 0; i < numRandomPoints; i++) {
       randomPoints.add(new Point(generator.nextInt(randomRange), generator

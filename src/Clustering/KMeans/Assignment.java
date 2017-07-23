@@ -9,11 +9,11 @@ public class Assignment {
     this.cluster = cluster;
   }
 
-  Point getPoint() {
+  public Point getPoint() {
     return point;
   }
 
-  int getCluster() {
+  public int getCluster() {
     return cluster;
   }
 

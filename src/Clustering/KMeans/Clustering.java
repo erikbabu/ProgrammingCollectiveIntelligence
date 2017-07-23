@@ -13,11 +13,11 @@ public class Clustering {
     this.centroids = centroids;
   }
 
-  List<Assignment> getAssignments() {
+  public List<Assignment> getAssignments() {
     return assignments;
   }
 
-  List<Point> getCentroids() {
+  public List<Point> getCentroids() {
     return centroids;
   }
 

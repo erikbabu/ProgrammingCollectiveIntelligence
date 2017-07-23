@@ -21,7 +21,7 @@ public class KMeans {
   }
 
   //Returns points that have been assigned to specified cluster
-  static List<Point> getAssignedCluster(int index, List<Assignment>
+  public static List<Point> getAssignedCluster(int index, List<Assignment>
       assignments) {
     return assignments.parallelStream().filter(i -> i.getCluster() == index)
         .map(i -> i.getPoint()).collect(Collectors.toList());
@@ -44,7 +44,7 @@ public class KMeans {
   }
 
   //Associates each point to the cluster whose centroid is nearest to it
-  static List<Assignment> assignAll(List<Point> points, List<Point>
+  private static List<Assignment> assignAll(List<Point> points, List<Point>
       centroids) {
     return points.parallelStream().map(i -> assign(i, centroids)).collect(Collectors
         .toList());
