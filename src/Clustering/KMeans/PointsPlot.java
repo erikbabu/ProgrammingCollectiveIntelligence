@@ -5,10 +5,7 @@ package Clustering.KMeans;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.swing.JPanel;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -24,17 +21,17 @@ import org.jfree.ui.ApplicationFrame;
 import org.jfree.data.Range;
 import org.jfree.data.xy.AbstractXYDataset;
 
-public class KMeansPlot extends ApplicationFrame {
+public class PointsPlot extends ApplicationFrame {
 
   private static final int CHART_WIDTH = 2000;
   private static final int CHART_HEIGHT = 2000;
   private static final int dispVal = 2;
-  private final Clustering cluster;
+  private final List<Point> points;
 
-  //Constructor takes file header name and cluster data
-  KMeansPlot(String header, Clustering cluster) {
+  //Constructor takes file header name and points data
+  PointsPlot(String header, List<Point> points) {
     super(header);
-    this.cluster = cluster;
+    this.points = points;
     JPanel panel = createDisplayPanel();
     panel.setPreferredSize(new Dimension(CHART_WIDTH, CHART_HEIGHT));
     this.setContentPane(panel);
@@ -43,9 +40,8 @@ public class KMeansPlot extends ApplicationFrame {
   //Creates and returns 2-D chart with plotted values
   private static JFreeChart createChart(XYDataset dataset) {
 
-    JFreeChart chart = ChartFactory.createScatterPlot("Points after 2D " +
-            "K-Means Clustering", "X", "Y",
-        dataset,
+    JFreeChart chart = ChartFactory.createScatterPlot("Points before KMeans " +
+            "Clustering", "X", "Y", dataset,
         PlotOrientation.VERTICAL, true, true, false);
 
     XYPlot plot = (XYPlot) chart.getPlot();
@@ -82,18 +78,17 @@ public class KMeansPlot extends ApplicationFrame {
   }
 
   JPanel createDisplayPanel() {
-    JFreeChart chart = createChart(new KMeansDataSet(cluster));
+    JFreeChart chart = createChart(new DataSet2D(points));
     ChartPanel panel = new ChartPanel(chart);
     panel.setMouseWheelEnabled(true);
 
     return panel;
   }
 
-  private class KMeansDataSet extends AbstractXYDataset implements XYDataset,
+  private class DataSet2D extends AbstractXYDataset implements XYDataset,
       DomainInfo, RangeInfo {
     private final Integer[][] xValues;
     private final Integer[][] yValues;
-    private int[] clusterSizes;
     private final int seriesCount;
     private final Number domainMin;
     private final Number domainMax;
@@ -102,22 +97,12 @@ public class KMeansPlot extends ApplicationFrame {
     private final Range domainRange;
     private final Range range;
 
-    KMeansDataSet(Clustering cluster) {
+    DataSet2D(List<Point> points) {
 
-      //assignments sorted by cluster id in ascending order
-      List<Assignment> assignmentsSorted = cluster.getAssignments().stream().
-          sorted(Comparator.comparingInt(Assignment::getCluster))
-          .collect(Collectors.toList());
-
-      List<Point> centroids = cluster.getCentroids();
-
-      int maxXValue = assignmentsSorted.stream().map(i -> i.getPoint().getX())
-          .reduce(Math::max).get();
-      int maxYValue = assignmentsSorted.stream().map(i -> i.getPoint().getY())
-          .reduce(Math::max).get();
-      int numClusters = centroids.size();
-      this.clusterSizes = new int[numClusters + 1];
-      this.seriesCount = numClusters + 1;
+      int maxXValue = points.stream().map(Point::getX).reduce(Math::max).get();
+      int maxYValue = points.stream().map(Point::getY).reduce(Math::max).get();
+      int numPoints = points.size();
+      this.seriesCount = 1;
       this.domainMin = 0.0;
       this.domainMax = maxXValue + dispVal;
       this.domainRange = new Range(domainMin.doubleValue(), domainMax
@@ -125,41 +110,16 @@ public class KMeansPlot extends ApplicationFrame {
       this.rangeMin = 0.0;
       this.rangeMax = maxYValue + dispVal;
       this.range = new Range(rangeMin.doubleValue(), rangeMax.doubleValue());
-
-      //store how many items belong to each cluster
-      for (int i = 0; i < numClusters; i++) {
-        clusterSizes[i] = KMeans.getAssignedCluster(i + 1, assignmentsSorted)
-            .size();
-      }
-
-      //store number of centroids as well (for plotting)
-      clusterSizes[numClusters] = numClusters;
-
-      int mostPointsPerCluster = Arrays.stream(clusterSizes).reduce
-          (Math::max).getAsInt();
-
-      this.xValues = new Integer[seriesCount][mostPointsPerCluster];
-      this.yValues = new Integer[seriesCount][mostPointsPerCluster];
+      this.xValues = new Integer[seriesCount][numPoints];
+      this.yValues = new Integer[seriesCount][numPoints];
 
       //store the data in 2D arrays for x and y values
-      //outer array is cluster number. inner array stores x/y val
-      int acc = 0;
-      for (int i = 0; i < numClusters; i++) {
-        for (int j = 0; j < clusterSizes[i]; j++) {
-          Point currentPoint = assignmentsSorted.get(acc).getPoint();
-          xValues[i][j] = currentPoint.getX();
-          yValues[i][j] = currentPoint.getY();
-
-          acc++;
+      //outer array is points number. inner array stores x/y val
+      for (int i = 0; i < numPoints; i++) {
+          xValues[0][i] = points.get(i).getX();
+          yValues[0][i] = points.get(i).getY();
         }
       }
-
-      //store centroid values as well for plotting
-      for (int i = 0; i < numClusters; i++) {
-        xValues[seriesCount - 1][i] = centroids.get(i).getX();
-        yValues[seriesCount - 1][i] = centroids.get(i).getY();
-      }
-    }
 
     @Override
     public Number getX(int cluster, int index) {
@@ -178,16 +138,12 @@ public class KMeansPlot extends ApplicationFrame {
 
     @Override
     public Comparable getSeriesKey(int i) {
-      if (i < clusterSizes.length - 1) {
-        return "Cluster" + (i + 1);
-      }
-
-      return "Centroids";
+      return "Point";
     }
 
     @Override
     public int getItemCount(int i) {
-      return clusterSizes[i];
+      return points.size();
     }
 
     @Override
